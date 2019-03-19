@@ -1,3 +1,15 @@
+--Team Members:
+----------------------
+--  1.- Merino Almaraz, Roberto Carlos
+--      merino@live.com
+--  2.- Villazon Valdez, Jose Pablo
+--      p.villazon@gmail.com
+--  
+--  Version 1.2
+--  Added Transpose, CountSub, Soccer functions
+--  
+-------------------------------
+
 {-# OPTIONS -fwarn-incomplete-patterns -fwarn-tabs -fno-warn-type-defaults #-}
 
 {-# OPTIONS -fdefer-type-errors  #-}
@@ -10,18 +22,25 @@ import qualified Data.Char as Char
 import qualified Data.Maybe as Maybe
 import qualified Text.Read as Read
 
+
 main :: IO ()
 main = do
    _ <- runTestTT $ TestList [ testLists,
                                testWeather,
-                               testSoccer ]
+                               testSoccer 
+                               ]
    return ()
 
 --------------------------------------------------------------------------------
 
 testLists :: Test
 testLists = "testLists" ~: TestList
-  [tintersperse, tinvert, ttranspose, tconcat, tcountSub]
+  [ tintersperse,
+    tinvert,
+    ttranspose, 
+    tconcat,
+    tcountSub
+    ]
 
 -- The intersperse function takes an element and a list
 -- and intersperses that element between the elements of the list.
@@ -31,10 +50,18 @@ testLists = "testLists" ~: TestList
 -- intersperse is defined in Data.List, and you can test your solution against
 -- that one.
 
-intersperse = undefined
+inter             :: a -> [a] -> [a]
+inter _   []      = []
+inter sep (x:xs)  = x : addChar sep xs
+
+addChar            :: a -> [a] -> [a]
+addChar _   []     = []
+addChar charSep (x:xs) = charSep : x : addChar charSep xs
 
 tintersperse :: Test
-tintersperse = "intersperse" ~: (assertFailure "testcase for intersperse" :: Assertion)
+tintersperse = inter ',' "abcde" ~?= "a,b,c,d,e" 
+--tintersperse = TestCase(assertEqual "intersperse, " ("a,b,c,d,e")(inter ',' "abcde"))
+--tintersperse = "intersperse" ~: (assertFailure "testcase for intersperse" :: Assertion)
  
 
 -- invert lst returns a list with each pair reversed.
@@ -45,10 +72,16 @@ tintersperse = "intersperse" ~: (assertFailure "testcase for intersperse" :: Ass
 --   note, you need to add a type annotation to test invert with []
 --
 
-invert = undefined
+swap :: (a, b) -> (b, a)
+swap (a, b) = (b, a)
+
+invert :: [(a,b)] -> [(b,a)]
+invert [] = []
+invert (x:xs) = swap x : invert xs
 
 tinvert :: Test
-tinvert = "invert" ~: (assertFailure "testcase for invert" :: Assertion)
+tinvert = invert [("a",1),("a",2), ("a",3)] ~?= [(1,"a"),(2,"a"),(3,"a")]
+
  
 
 -- concat
@@ -60,10 +93,15 @@ tinvert = "invert" ~: (assertFailure "testcase for invert" :: Assertion)
 -- NOTE: remember you cannot use any functions from the Prelude or Data.List for
 -- this problem, even for use as a helper function.
 
-concat = undefined
+conc :: [[a]] -> [a]
+conc [] = []
+conc (x:xs) = x ++ conc(xs) 
+
 
 tconcat :: Test
-tconcat = "concat" ~: (assertFailure "testcase for concat" :: Assertion)
+tconcat = conc [[1,2,3], [4,5],[5,6,7]] ~?= [1,2,3,4,5,5,6,7]
+--tconcat = "concat" ~: (assertFailure "testcase for concat" :: Assertion)
+
 
 -- transpose  (WARNING: this one is tricky!)
 
@@ -78,10 +116,18 @@ tconcat = "concat" ~: (assertFailure "testcase for concat" :: Assertion)
 --    transpose  [[]] returns []
 -- transpose is defined in Data.List
 
-transpose = undefined
+merge [] _ = []
+merge _ [] = []
+merge (x:xs) (y:ys) = [x,y] : (merge xs ys)
+
+transpose [] = []
+transpose [_] = []
+transpose (x:y:xs) = merge x y ++ transpose xs
+
 
 ttranspose :: Test
-ttranspose = "transpose" ~: (assertFailure "testcase for transpose" :: Assertion)
+--ttranspose = "transpose" ~: (assertFailure "testcase for transpose" :: Assertion)
+ttranspose = transpose [[1,2,3],[4,5,6]] ~?= [[1,4],[2,5],[3,6]]
 
 -- countSub sub str
 
@@ -90,16 +136,42 @@ ttranspose = "transpose" ~: (assertFailure "testcase for transpose" :: Assertion
 -- for example:
 --      countSub "aa" "aaa" returns 2
 
-countSub = undefined
+countsub :: String -> String -> Int
+countsub sub = length . Maybe.catMaybes . map (List.stripPrefix sub) . List.tails
+
 tcountSub :: Test
-tcountSub = "countSub" ~: (assertFailure "testcase for countSub" :: Assertion)
+tcountSub = countsub "aa" "aaa" ~?= 2 
+--tcountSub = "countSub" ~: (assertFailure "testcase for countSub" :: Assertion)
 
 --------------------------------------------------------------------------------
 
 -- Part One: Hottest Day
 
-weather :: String -> String
-weather str = error "unimplemented"
+-- / Applies a function to the value in a Maybe if the value exists
+maybeMap :: (a -> b) -> Maybe a -> Maybe b
+maybeMap _ Nothing  = Nothing
+maybeMap f (Just x) = Just $ f x
+-- / Applies a function to the value in two Maybes if both values exist
+maybeMap2 :: (a -> b -> c) -> Maybe a -> Maybe b -> Maybe c
+maybeMap2 f (Just x) (Just y) = Just $ f x y
+maybeMap2 _ _        _        = Nothing
+
+wProcessData :: Maybe (String,String,String) -> Maybe (Int, String)
+wProcessData (Just (day,high,low)) =
+   maybeMap (\x -> (x,day)) (maybeMap2 (\x y -> abs (x-y)) (readInt high) (readInt low))
+wProcessData _ = Nothing
+
+wExtractor :: [String] -> Maybe (String,String,String)
+wExtractor (day:high:low:_) = Just (day,high,low)
+wExtractor _                = Nothing
+
+-- weather :: String -> String
+weather = dropWhile (==' ') .
+          snd .
+          minimum .
+          Maybe.mapMaybe (wProcessData . wExtractor . words) .
+          drop 18 .
+          lines
  
 
 weatherProgram :: IO ()
@@ -118,25 +190,62 @@ testWeather = "weather" ~: do str <- readFile "jul17.dat"
 
 -- Part Two: Soccer League Table
 
-soccer :: String -> String
-soccer = error "unimplemented"
- 
+-- / Applies a function to the value in a Maybe if the value exists
+maybeMaps :: (a -> b) -> Maybe a -> Maybe b
+maybeMaps _ Nothing  = Nothing
+maybeMaps f (Just x) = Just $ f x
+
+-- / Applies a function to the value in two Maybes if both values exist
+maybeMap2s :: (a -> b -> c) -> Maybe a -> Maybe b -> Maybe c
+maybeMap2s f (Just x) (Just y) = Just $ f x y
+maybeMap2s _ _        _        = Nothing
+
+wsProcessData :: Maybe (String,String,String,String,String,String,String,String,String) -> Maybe (Int, String)
+wsProcessData (Just (n,t,p,w,l,d,f,da,a)) =
+   maybeMaps (\x -> (x,t)) (maybeMap2s (\x y -> abs (x-y)) (readInt f) (readInt a))
+wsProcessData _ = Nothing
+
+wsExtractor :: [String] -> Maybe (String,String,String,String,String,String,String,String,String)
+wsExtractor (n:t:p:w:l:da:f:d:a:_) = Just (n,t,p,w,l,d,f,da,a)
+wsExtractor _                = Nothing
+
+goals = dropWhile (==' ') .
+          snd .
+          minimum .
+          Maybe.mapMaybe (wsProcessData . wsExtractor . words) .
+          drop 1 .
+          lines
+
 
 soccerProgram :: IO ()
 soccerProgram = do
   str <- readFile "soccer.dat"
-  putStrLn (soccer str)
+  putStrLn (goals str)
+
+
+readString :: String -> Maybe String
+readString = Read.readMaybe
 
 testSoccer :: Test
-testSoccer = "soccer" ~: do
+testSoccer = "goals" ~: do
   str <- readFile "soccer.dat"
-  soccer str @?= "Aston_Villa"
+  goals str @?= "Aston_Villa"
 
 -- Part Three: DRY Fusion
 
 weather2 :: String -> String
-weather2 = undefined
+weather2 = dropWhile (==' ') .
+          snd .
+          minimum .
+          Maybe.mapMaybe (wProcessData . wExtractor . words) .
+          drop 18 .
+          lines
 
 soccer2 :: String -> String
-soccer2 = undefined
+soccer2 = dropWhile (==' ') .
+          snd .
+          minimum .
+          Maybe.mapMaybe (wsProcessData . wsExtractor . words) .
+          drop 1 .
+          lines
 
